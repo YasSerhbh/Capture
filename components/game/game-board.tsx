@@ -39,6 +39,7 @@ export function GameBoard({
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const activePointerId = useRef<number | null>(null);
+  const activePointerType = useRef<string | null>(null);
   const dragMoved = useRef(false);
   const suppressClickUntil = useRef(0);
   const pointerTarget = useRef<HTMLDivElement | null>(null);
@@ -104,6 +105,7 @@ export function GameBoard({
 
       dragMoved.current = false;
       activePointerId.current = e.pointerId;
+      activePointerType.current = e.pointerType;
       pointerTarget.current = e.currentTarget;
       dragStart.current = {
         x: e.clientX,
@@ -111,6 +113,12 @@ export function GameBoard({
         panX: pan.x,
         panY: pan.y,
       };
+
+      // Mobile/pen drag needs immediate capture for stable long drags.
+      if (e.pointerType !== "mouse") {
+        if (e.cancelable) e.preventDefault();
+        e.currentTarget.setPointerCapture(e.pointerId);
+      }
     },
     [pan]
   );
@@ -122,8 +130,9 @@ export function GameBoard({
       const dx = e.clientX - dragStart.current.x;
       const dy = e.clientY - dragStart.current.y;
       const distance = Math.hypot(dx, dy);
+      const dragThreshold = activePointerType.current === "mouse" ? 6 : 2;
 
-      if (!dragMoved.current && distance > 6) {
+      if (!dragMoved.current && distance > dragThreshold) {
         dragMoved.current = true;
         setIsDragging(true);
 
@@ -160,6 +169,7 @@ export function GameBoard({
     }
 
     activePointerId.current = null;
+    activePointerType.current = null;
     pointerTarget.current = null;
     dragMoved.current = false;
     setIsDragging(false);
