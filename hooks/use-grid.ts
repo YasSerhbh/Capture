@@ -177,7 +177,27 @@ export function useGrid(userId: string | null): UseGridReturn {
           body: JSON.stringify({ blockId }),
         });
 
+        const responseType = res.headers.get("content-type") || "";
+        if (responseType.includes("text/html")) {
+          console.error("[Capture] Unexpected HTML response from /api/capture");
+          setBlocks((prev) => {
+            const next = new Map(prev);
+            next.set(blockId, block);
+            return next;
+          });
+          return false;
+        }
+
         if (!res.ok) {
+          let apiError = `HTTP ${res.status}`;
+          try {
+            const json = await res.json();
+            if (json?.error) apiError = json.error;
+          } catch {
+            // ignore parse errors; keep status fallback
+          }
+          console.error(`[Capture] Capture failed: ${apiError}`);
+
           setBlocks((prev) => {
             const next = new Map(prev);
             next.set(blockId, block);

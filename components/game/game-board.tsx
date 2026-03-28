@@ -41,6 +41,7 @@ export function GameBoard({
   const activePointerId = useRef<number | null>(null);
   const dragMoved = useRef(false);
   const suppressClickUntil = useRef(0);
+  const pointerTarget = useRef<HTMLDivElement | null>(null);
   const dragStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
 
   useEffect(() => {
@@ -99,31 +100,40 @@ export function GameBoard({
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
+      if (activePointerId.current !== null) return;
+
       dragMoved.current = false;
       activePointerId.current = e.pointerId;
-      setIsDragging(true);
+      pointerTarget.current = e.currentTarget;
       dragStart.current = {
         x: e.clientX,
         y: e.clientY,
         panX: pan.x,
         panY: pan.y,
       };
-      e.currentTarget.setPointerCapture(e.pointerId);
     },
     [pan]
   );
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      if (!isDragging) return;
       if (activePointerId.current !== e.pointerId) return;
 
       const dx = e.clientX - dragStart.current.x;
       const dy = e.clientY - dragStart.current.y;
+      const distance = Math.hypot(dx, dy);
 
-      if (!dragMoved.current && Math.hypot(dx, dy) > 6) {
+      if (!dragMoved.current && distance > 6) {
         dragMoved.current = true;
+        setIsDragging(true);
+
+        const target = pointerTarget.current;
+        if (target && !target.hasPointerCapture(e.pointerId)) {
+          target.setPointerCapture(e.pointerId);
+        }
       }
+
+      if (!dragMoved.current) return;
 
       if (e.cancelable) {
         e.preventDefault();
@@ -138,9 +148,10 @@ export function GameBoard({
   );
 
   const stopDragging = useCallback((e?: React.PointerEvent<HTMLDivElement>) => {
-    if (e && activePointerId.current === e.pointerId) {
-      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-        e.currentTarget.releasePointerCapture(e.pointerId);
+    if (e && activePointerId.current !== null && activePointerId.current === e.pointerId) {
+      const target = pointerTarget.current ?? e.currentTarget;
+      if (target.hasPointerCapture(e.pointerId)) {
+        target.releasePointerCapture(e.pointerId);
       }
     }
 
@@ -149,6 +160,8 @@ export function GameBoard({
     }
 
     activePointerId.current = null;
+    pointerTarget.current = null;
+    dragMoved.current = false;
     setIsDragging(false);
   }, []);
 

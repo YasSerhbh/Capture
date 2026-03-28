@@ -69,19 +69,29 @@ export async function POST(request: Request) {
       );
     }
 
-    const { error: updateError } = await supabase
+    const { data: updatedBlock, error: updateError } = await supabase
       .from("grid_blocks")
       .update({
         owner_id: user.id,
         captured_at: new Date().toISOString(),
       })
-      .eq("id", body.blockId);
+      .eq("id", body.blockId)
+      .is("owner_id", null)
+      .select("id")
+      .maybeSingle();
 
     if (updateError) {
       console.error("Capture error:", updateError);
       return NextResponse.json(
         { error: "Failed to capture block" },
         { status: 500 }
+      );
+    }
+
+    if (!updatedBlock) {
+      return NextResponse.json(
+        { error: "Block is no longer available" },
+        { status: 409 }
       );
     }
 
